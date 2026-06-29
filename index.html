@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>" />
+</head>
+<body>
+
+  <!-- ===================== LOGIN ===================== -->
+  <div id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="auth-logo">✅</div>
+      <h1 id="auth-app-name">Project Tracker</h1>
+      <p class="muted">Sign in with your work email. We'll send you a one-time link — no password to remember.</p>
+      <form id="login-form">
+        <input id="login-email" type="email" placeholder="you@company.com" required autocomplete="email" />
+        <button type="submit" class="btn btn-primary btn-block">Send me a sign-in link</button>
+      </form>
+      <p id="auth-msg" class="auth-msg"></p>
+    </div>
+  </div>
+
+  <!-- ===================== APP ===================== -->
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✅</span> <span id="brand-name">Project Tracker</span></div>
+      <div class="topbar-actions">
+        <span id="user-email" class="muted small"></span>
+        <button id="signout-btn" class="btn btn-ghost btn-sm">Sign out</button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="view-tab active" data-view="board">Board</button>
+        <button class="view-tab" data-view="list">List</button>
+      </div>
+      <div class="toolbar-right">
+        <input id="search" class="search" type="search" placeholder="Search tasks…" />
+        <select id="filter-project" class="filter"><option value="">All projects</option></select>
+        <select id="filter-assignee" class="filter"><option value="">All people</option></select>
+        <select id="filter-tag" class="filter"><option value="">All tags</option></select>
+        <button id="manage-projects-btn" class="btn btn-ghost btn-sm">Projects</button>
+        <button id="new-task-btn" class="btn btn-primary btn-sm">+ New task</button>
+      </div>
+    </div>
+
+    <main id="board-view" class="board"></main>
+    <main id="list-view" class="list-view hidden"></main>
+  </div>
+
+  <!-- ===================== TASK MODAL ===================== -->
+  <div id="task-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="task-modal-title">New task</h2>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <form id="task-form" class="modal-body">
+        <input type="hidden" id="task-id" />
+        <label>Title <span class="req">*</span>
+          <input id="f-title" type="text" required maxlength="200" />
+        </label>
+        <label>Description
+          <textarea id="f-description" rows="3"></textarea>
+        </label>
+        <div class="row">
+          <label>Project
+            <select id="f-project"></select>
+          </label>
+          <label>Status
+            <select id="f-status">
+              <option value="todo">To do</option>
+              <option value="in_progress">In progress</option>
+              <option value="blocked">Blocked</option>
+              <option value="done">Done</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <label>Priority
+            <select id="f-priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label>Deadline
+            <input id="f-deadline" type="date" />
+          </label>
+        </div>
+        <label>Responsible people <span class="hint">(comma-separated)</span>
+          <input id="f-assignees" type="text" placeholder="Jane, Marco" />
+        </label>
+        <label>Stakeholders <span class="hint">(comma-separated)</span>
+          <input id="f-stakeholders" type="text" placeholder="Client name, Partner" />
+        </label>
+        <label>Tags <span class="hint">(comma-separated)</span>
+          <input id="f-tags" type="text" placeholder="urgent, research, billable" />
+        </label>
+        <div class="modal-foot">
+          <button type="button" id="delete-task-btn" class="btn btn-danger btn-sm hidden">Delete</button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== PROJECTS MODAL ===================== -->
+  <div id="project-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Project buckets</h2>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="project-list" class="project-list"></div>
+        <form id="project-form" class="project-add">
+          <input id="p-name" type="text" placeholder="New project name" required />
+          <input id="p-color" type="color" value="#6366f1" title="Colour" />
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Supabase client (official CDN build) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
