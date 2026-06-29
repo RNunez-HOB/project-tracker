@@ -6,7 +6,7 @@
 // ============================================================
 window.APP_CONFIG = {
   SUPABASE_URL: "https://vwwoljbhtdjlqozziuzx.supabase.co",
-  SUPABASE_ANON_KEY: "sb_publishable__mOHRELiIUnpNa32fEVLZw_fsRuyYvy",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3d29samJodGRqbHFvenppdXp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzU3ODYsImV4cCI6MjA5ODMxMTc4Nn0.CR-O_ttTbFUR3W29NexfxON910eFhWbk07XSorPJGwM",
 
   // Cosmetic — change to your firm's name.
   APP_NAME: "Project Tracker",
