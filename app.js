@@ -29,7 +29,7 @@
     showAuth();
     $("auth-msg").className = "auth-msg err";
     $("auth-msg").innerHTML =
-      "⚠️ Not connected yet. Open <b>config.js</b> and paste your Supabase URL and anon key (see SETUP.md).";
+      "Not connected yet. Open <b>config.js</b> and paste your Supabase URL and anon key (see SETUP.md).";
     $("login-form").style.display = "none";
     return;
   }
@@ -47,6 +47,7 @@
   let projects = [];
   let tasks = [];
   let currentView = "board";
+  let graphInst = null;
   const filters = { search: "", project: "", assignee: "", tag: "" };
 
   /* ---------------- AUTH ---------------- */
@@ -64,7 +65,7 @@
       options: { emailRedirectTo: window.location.href.split("#")[0] },
     });
     if (error) { msg.className = "auth-msg err"; msg.textContent = error.message; }
-    else { msg.className = "auth-msg ok"; msg.textContent = "✅ Check your email for the sign-in link."; }
+    else { msg.className = "auth-msg ok"; msg.textContent = "Check your email for the sign-in link."; }
   });
 
   $("signout-btn").addEventListener("click", async () => { await sb.auth.signOut(); });
@@ -165,14 +166,32 @@
 
   /* ---------------- RENDER ---------------- */
   function render() {
-    if (currentView === "board") {
-      $("board-view").classList.remove("hidden");
-      $("list-view").classList.add("hidden");
-      renderBoard();
+    const v = currentView;
+    $("board-view").classList.toggle("hidden", v !== "board");
+    $("list-view").classList.toggle("hidden", v !== "list");
+    $("graph-view").classList.toggle("hidden", v !== "graph");
+    if (v === "board") renderBoard();
+    else if (v === "list") renderList();
+    else renderGraph();
+  }
+
+  function renderGraph() {
+    if (!window.SynapseGraph) return;
+    if (!graphInst) {
+      graphInst = window.SynapseGraph.mount($("graph-view"), {
+        getProjects: () => projects,
+        getTasks: () => tasks,
+        statuses: () => STATUSES,
+        openProject: (id) => {
+          filters.project = id;
+          currentView = "board";
+          document.querySelectorAll(".view-tab").forEach((t) => t.classList.toggle("active", t.dataset.view === "board"));
+          $("filter-project").value = id;
+          render();
+        },
+      });
     } else {
-      $("board-view").classList.add("hidden");
-      $("list-view").classList.remove("hidden");
-      renderList();
+      graphInst.update();
     }
   }
 
@@ -223,7 +242,7 @@
       ${(t.tags && t.tags.length) ? `<div class="chips">${t.tags.map((x)=>`<span class="chip tag">${esc(x)}</span>`).join("")}</div>` : ""}
       <div class="card-meta">
         <span class="pill pri-${t.priority || "medium"}">${t.priority || "medium"}</span>
-        ${t.deadline ? `<span class="due ${late ? "late" : ""}">📅 ${fmtDate(t.deadline)}</span>` : ""}
+        ${t.deadline ? `<span class="due ${late ? "late" : ""}">${fmtDate(t.deadline)}</span>` : ""}
         ${people.length ? `<span class="avatars">${people.map((a)=>`<span class="avatar" title="${esc(a)}">${initials(a)}</span>`).join("")}</span>` : ""}
       </div>
     </div>`;

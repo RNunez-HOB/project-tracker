@@ -4,15 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Project Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='14' y='14' width='72' height='72' rx='16' fill='%23e2654f'/><rect x='37' y='37' width='26' height='26' rx='4' fill='%2314121a' transform='rotate(45 50 50)'/></svg>" />
 </head>
 <body>
 
   <!-- ===================== LOGIN ===================== -->
   <div id="auth-screen" class="auth-screen hidden">
     <div class="auth-card">
-      <div class="auth-logo">✅</div>
+      <div class="auth-logo"></div>
       <h1 id="auth-app-name">Project Tracker</h1>
       <p class="muted">Sign in with your work email. We'll send you a one-time link — no password to remember.</p>
       <form id="login-form">
@@ -26,7 +30,7 @@
   <!-- ===================== APP ===================== -->
   <div id="app" class="app hidden">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">✅</span> <span id="brand-name">Project Tracker</span></div>
+      <div class="brand"><span class="brand-mark"></span> <span id="brand-name">Project Tracker</span></div>
       <div class="topbar-actions">
         <span id="user-email" class="muted small"></span>
         <button id="signout-btn" class="btn btn-ghost btn-sm">Sign out</button>
@@ -37,6 +41,7 @@
       <div class="toolbar-left">
         <button class="view-tab active" data-view="board">Board</button>
         <button class="view-tab" data-view="list">List</button>
+        <button class="view-tab" data-view="graph">Graph</button>
       </div>
       <div class="toolbar-right">
         <input id="search" class="search" type="search" placeholder="Search tasks…" />
@@ -50,6 +55,7 @@
 
     <main id="board-view" class="board"></main>
     <main id="list-view" class="list-view hidden"></main>
+    <main id="graph-view" class="graph-view hidden"></main>
   </div>
 
   <!-- ===================== TASK MODAL ===================== -->
@@ -134,6 +140,7 @@
   <!-- Supabase client (official CDN build) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
+  <script src="graph.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
