@@ -43,31 +43,45 @@
     return;
   }
 
-  // Some privacy-hardened browsers (strict tracking protection, private
-  // windows, or blocked cookies — common in Firefox/Waterfox) disable site
-  // storage. Without it the magic-link session can't be saved, which shows up
-  // as a blank, unusable dashboard. Detect and explain instead of failing silently.
+  // Some privacy-hardened browsers (strict tracking protection, private windows,
+  // or "delete cookies on close" — common in Firefox/Waterfox) block site storage.
+  // Supabase keeps the sign-in session in localStorage, so when it's blocked every
+  // auth call throws (NS_ERROR_NOT_AVAILABLE) and the dashboard goes blank. Fall
+  // back to an in-memory store so the app still works for the current tab.
+  let storageBlocked = false;
+  let authStorage;
   try {
     const k = "__pt_storage_test__";
-    localStorage.setItem(k, "1");
-    localStorage.removeItem(k);
+    window.localStorage.setItem(k, "1");
+    window.localStorage.removeItem(k);
+    authStorage = window.localStorage;
   } catch (_) {
-    showAuth();
-    $("login-form").style.display = "none";
-    $("auth-msg").className = "auth-msg err";
-    $("auth-msg").textContent =
-      "This browser is blocking site storage, so sign-in can't be saved. Allow cookies/storage for this site (turn off strict tracking protection or leave private mode), then reload.";
-    return;
+    storageBlocked = true;
+    const mem = {};
+    authStorage = {
+      getItem: (k) => (k in mem ? mem[k] : null),
+      setItem: (k, v) => { mem[k] = String(v); },
+      removeItem: (k) => { delete mem[k]; },
+    };
   }
 
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
+      storage: authStorage,      // localStorage, or in-memory if the browser blocks it
       flowType: "implicit",      // token in the link — works across devices/browsers
       detectSessionInUrl: true,  // process the token when the link lands
       persistSession: true,
       autoRefreshToken: true,
     },
   });
+
+  if (storageBlocked) {
+    // The app works, but the session lives only in memory — gone on reload.
+    setTimeout(() => toast(
+      "This browser is blocking site storage, so you'll be signed out when you reload. " +
+      "Allow cookies/storage for this site to stay signed in."
+    ), 1200);
+  }
 
   // In-memory state
   let projects = [];
