@@ -48,6 +48,7 @@
   let tasks = [];
   let currentView = "board";
   let graphInst = null;
+  let currentUserId = null;
   const filters = { search: "", project: "", assignee: "", tag: "" };
 
   /* ---------------- AUTH ---------------- */
@@ -72,6 +73,7 @@
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     if (session && session.user) {
+      currentUserId = session.user.id;
       $("user-email").textContent = session.user.email;
       showApp();
       await loadAll();
@@ -83,6 +85,7 @@
   // Handle initial session (e.g. returning from magic link)
   sb.auth.getSession().then(({ data }) => {
     if (data.session) {
+      currentUserId = data.session.user.id;
       $("user-email").textContent = data.session.user.email;
       showApp();
       loadAll();
@@ -92,15 +95,26 @@
   });
 
   /* ---------------- DATA ---------------- */
+  let loadingNow = false;
+  let reloadQueued = false;
   async function loadAll() {
-    const [{ data: pj }, { data: tk }] = await Promise.all([
-      sb.from("projects").select("*").eq("archived", false).order("created_at"),
-      sb.from("tasks").select("*").order("deadline", { nullsFirst: false }),
-    ]);
-    projects = pj || [];
-    tasks = tk || [];
-    refreshFilters();
-    render();
+    // Guard against overlapping fetches (realtime + polling + manual saves
+    // can all fire at once). If a load is already running, queue one more.
+    if (loadingNow) { reloadQueued = true; return; }
+    loadingNow = true;
+    try {
+      const [{ data: pj }, { data: tk }] = await Promise.all([
+        sb.from("projects").select("*").eq("archived", false).order("created_at"),
+        sb.from("tasks").select("*").order("deadline", { nullsFirst: false }),
+      ]);
+      projects = pj || [];
+      tasks = tk || [];
+      refreshFilters();
+      render();
+    } finally {
+      loadingNow = false;
+      if (reloadQueued) { reloadQueued = false; loadAll(); }
+    }
   }
 
   // Live updates so consultants see each other's changes
@@ -108,6 +122,15 @@
     .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, loadAll)
     .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, loadAll)
     .subscribe();
+
+  // Fallback so the board stays current even if the realtime socket drops:
+  // poll every 20s while signed in, and refresh whenever the tab regains focus.
+  setInterval(() => {
+    if (currentUserId && document.visibilityState === "visible") loadAll();
+  }, 20000);
+  document.addEventListener("visibilitychange", () => {
+    if (currentUserId && document.visibilityState === "visible") loadAll();
+  });
 
   /* ---------------- FILTERS ---------------- */
   function refreshFilters() {
@@ -314,15 +337,18 @@
       tags: splitList($("f-tags").value),
     };
     closeModals();
-    if (id) await updateTask(id, payload);
-    else {
-      const { data: u } = await sb.auth.getUser();
-      payload.created_by = u.user.id;
-      const { error } = await sb.from("tasks").insert(payload);
-      if (error) return toast("Error: " + error.message);
-      toast("Task added");
+    try {
+      if (id) await updateTask(id, payload);
+      else {
+        payload.created_by = currentUserId;
+        const { error } = await sb.from("tasks").insert(payload);
+        if (error) return toast("Error: " + error.message);
+        toast("Task added");
+      }
+      await loadAll();
+    } catch (err) {
+      toast("Couldn't save task: " + (err.message || err));
     }
-    await loadAll();
   });
 
   $("delete-task-btn").addEventListener("click", async () => {
@@ -362,13 +388,16 @@
     e.preventDefault();
     const name = $("p-name").value.trim();
     if (!name) return;
-    const { data: u } = await sb.auth.getUser();
-    const { error } = await sb.from("projects").insert({
-      name, color: $("p-color").value, created_by: u.user.id,
-    });
-    if (error) return toast("Error: " + error.message);
-    $("p-name").value = "";
-    await loadAll(); renderProjectList();
+    try {
+      const { error } = await sb.from("projects").insert({
+        name, color: $("p-color").value, created_by: currentUserId,
+      });
+      if (error) return toast("Error: " + error.message);
+      $("p-name").value = "";
+      await loadAll(); renderProjectList();
+    } catch (err) {
+      toast("Couldn't save project: " + (err.message || err));
+    }
   });
 
   /* ---------------- MODAL CLOSE ---------------- */
