@@ -34,6 +34,32 @@
     return;
   }
 
+  if (!window.supabase || !window.supabase.createClient) {
+    showAuth();
+    $("login-form").style.display = "none";
+    $("auth-msg").className = "auth-msg err";
+    $("auth-msg").textContent =
+      "Couldn't load the Supabase library — a network issue or ad-blocker may be blocking the CDN. Reload the page; if it persists, check your connection.";
+    return;
+  }
+
+  // Some privacy-hardened browsers (strict tracking protection, private
+  // windows, or blocked cookies — common in Firefox/Waterfox) disable site
+  // storage. Without it the magic-link session can't be saved, which shows up
+  // as a blank, unusable dashboard. Detect and explain instead of failing silently.
+  try {
+    const k = "__pt_storage_test__";
+    localStorage.setItem(k, "1");
+    localStorage.removeItem(k);
+  } catch (_) {
+    showAuth();
+    $("login-form").style.display = "none";
+    $("auth-msg").className = "auth-msg err";
+    $("auth-msg").textContent =
+      "This browser is blocking site storage, so sign-in can't be saved. Allow cookies/storage for this site (turn off strict tracking protection or leave private mode), then reload.";
+    return;
+  }
+
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
       flowType: "implicit",      // token in the link — works across devices/browsers
@@ -69,7 +95,12 @@
     else { msg.className = "auth-msg ok"; msg.textContent = "Check your email for the sign-in link."; }
   });
 
-  $("signout-btn").addEventListener("click", async () => { await sb.auth.signOut(); });
+  $("signout-btn").addEventListener("click", async () => {
+    // Clear the session locally first so sign-out always works, even if the
+    // server call fails or the token is already invalid.
+    try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
+    showAuth();
+  });
 
   sb.auth.onAuthStateChange(async (_event, session) => {
     if (session && session.user) {
@@ -103,10 +134,24 @@
     if (loadingNow) { reloadQueued = true; return; }
     loadingNow = true;
     try {
-      const [{ data: pj }, { data: tk }] = await Promise.all([
+      const [{ data: pj, error: e1 }, { data: tk, error: e2 }] = await Promise.all([
         sb.from("projects").select("*").eq("archived", false).order("created_at"),
         sb.from("tasks").select("*").order("deadline", { nullsFirst: false }),
       ]);
+      const err = e1 || e2;
+      if (err) {
+        // A dead/expired session makes every request fail and the board go
+        // blank with no clue why. Recover to the sign-in screen instead of
+        // leaving the user stuck.
+        if (err.code === "PGRST301" || err.status === 401 ||
+            /jwt|token|expired|not authenticated/i.test(err.message || "")) {
+          try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
+          showAuth();
+          return;
+        }
+        toast("Couldn't load data: " + err.message);
+        return;
+      }
       projects = pj || [];
       tasks = tk || [];
       refreshFilters();
