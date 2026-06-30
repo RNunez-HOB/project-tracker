@@ -234,6 +234,7 @@
     ].filter(Boolean))];
     applyPrefs();
     render();
+    loadMentions();   // refresh the @mention badge
   }
 
   function applyPrefs() {
@@ -295,6 +296,7 @@
       .on("postgres_changes", { event: "*", schema: "public", table: "comments" }, (payload) => {
         const tid = (payload.new && payload.new.task_id) || (payload.old && payload.old.task_id);
         if (openTaskId && tid === openTaskId) loadComments(openTaskId);
+        loadMentions();
       })
       .subscribe();
   }
@@ -384,6 +386,7 @@
     e.preventDefault();
     const aliases = splitList($("alias-input").value);
     const prefs = {
+      ...myPrefs,                       // keep other prefs (e.g. mentions_seen_at)
       view: $("pref-view").value,
       filter: $("pref-filter").value,
       theme: $("pref-theme").value,
@@ -931,6 +934,54 @@
       loadComments(openTaskId);
     } catch (err) { toast("Couldn't delete: " + (err.message || err)); }
   }
+
+  /* ---------------- @MENTION BADGE ---------------- */
+  let mentionItems = [];   // comments mentioning me since I last looked
+  async function loadMentions() {
+    if (!currentUserId) return;
+    try {
+      const rows = await rest("comments?select=id,task_id,author_id,body,created_at&mentions=cs.%7B" +
+        currentUserId + "%7D&order=created_at.desc&limit=50");
+      const seen = myPrefs.mentions_seen_at || "1970-01-01T00:00:00Z";
+      mentionItems = rows.filter((c) => c.author_id !== currentUserId && c.created_at > seen);
+    } catch (_) { mentionItems = []; }   // comments table may not exist until migrate-features.sql is run
+    renderMentionBadge();
+  }
+  function renderMentionBadge() {
+    const cnt = $("mentions-count");
+    cnt.textContent = mentionItems.length;
+    cnt.classList.toggle("hidden", mentionItems.length === 0);
+  }
+  function renderMentionPanel() {
+    const panel = $("mentions-panel");
+    if (!mentionItems.length) { panel.innerHTML = '<div class="empty">No new mentions.</div>'; return; }
+    panel.innerHTML = mentionItems.map((c) => {
+      const t = tasks.find((x) => x.id === c.task_id);
+      return `<div class="mention-row" data-task="${c.task_id}">
+        <div class="mention-row-task">${esc(t ? t.title : "a task")}</div>
+        <div class="muted small">${esc(nameFor(c.author_id))} · ${relTime(c.created_at)}</div>
+        <div class="mention-row-body muted small">${esc((c.body || "").slice(0, 90))}</div>
+      </div>`;
+    }).join("");
+    panel.querySelectorAll(".mention-row").forEach((r) =>
+      r.addEventListener("click", () => { $("mentions-panel").classList.add("hidden"); openTask(r.dataset.task); }));
+  }
+  async function markMentionsSeen() {
+    myPrefs = { ...myPrefs, mentions_seen_at: new Date().toISOString() };
+    if (profileById[currentUserId]) profileById[currentUserId].prefs = myPrefs;
+    try { await restWrite("profiles?id=eq." + currentUserId, "PATCH", { prefs: myPrefs }); } catch (_) {}
+    $("mentions-count").classList.add("hidden");
+  }
+  $("mentions-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const panel = $("mentions-panel");
+    if (panel.classList.contains("hidden")) { renderMentionPanel(); panel.classList.remove("hidden"); markMentionsSeen(); }
+    else { panel.classList.add("hidden"); }
+  });
+  document.addEventListener("click", (e) => {
+    const wrap = $("mentions-btn").closest(".mentions-wrap");
+    if (wrap && !wrap.contains(e.target)) $("mentions-panel").classList.add("hidden");
+  });
 
   /* ---------------- PROJECTS MODAL ---------------- */
   $("manage-projects-btn").addEventListener("click", () => { renderProjectList(); $("project-modal").classList.remove("hidden"); });

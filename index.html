@@ -9,7 +9,7 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <!-- Bump the ?v= number on every deploy so browsers never serve a stale cached copy. -->
-  <link rel="stylesheet" href="styles.css?v=14" />
+  <link rel="stylesheet" href="styles.css?v=15" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='14' y='14' width='72' height='72' rx='16' fill='%23e2654f'/><rect x='37' y='37' width='26' height='26' rx='4' fill='%2314121a' transform='rotate(45 50 50)'/></svg>" />
 </head>
 <body>
@@ -34,6 +34,10 @@
       <div class="brand"><span class="brand-mark"></span> <span id="brand-name">Project Tracker</span></div>
       <div class="topbar-actions">
         <span id="user-email" class="muted small"></span>
+        <div class="mentions-wrap">
+          <button id="mentions-btn" class="btn btn-ghost btn-sm" title="Mentions of you">🔔<span id="mentions-count" class="mentions-count hidden">0</span></button>
+          <div id="mentions-panel" class="mentions-panel hidden"></div>
+        </div>
         <button id="my-names-btn" class="btn btn-ghost btn-sm">Settings</button>
         <button id="signout-btn" class="btn btn-ghost btn-sm">Sign out</button>
       </div>
@@ -253,8 +257,8 @@
 
   <!-- Supabase client (official CDN build) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=14"></script>
-  <script src="graph.js?v=14"></script>
-  <script src="app.js?v=14"></script>
+  <script src="config.js?v=15"></script>
+  <script src="graph.js?v=15"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

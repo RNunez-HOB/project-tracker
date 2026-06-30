@@ -350,3 +350,17 @@ tr:hover td{background:var(--surface-2);cursor:pointer}
 .proj-table td .chip{display:inline-block;margin:1px 2px}
 .proj-table tr{cursor:pointer}
 .modal-body input[type=color]{height:38px;padding:2px;cursor:pointer}
+
+/* ---------- @mention badge ---------- */
+.mentions-wrap{position:relative;display:inline-flex}
+#mentions-btn{position:relative;padding-left:9px;padding-right:9px}
+.mentions-count{position:absolute;top:-7px;right:-7px;background:var(--primary);color:var(--on-accent);
+  font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:9px;display:inline-flex;
+  align-items:center;justify-content:center;padding:0 4px;font-family:var(--mono);line-height:1}
+.mentions-panel{position:absolute;top:calc(100% + 6px);right:0;width:300px;background:var(--surface);
+  border:2px solid var(--border-strong);border-radius:12px;box-shadow:6px 6px 0 var(--shadow);
+  z-index:80;max-height:360px;overflow:auto;padding:6px}
+.mention-row{padding:9px 11px;border-radius:8px;cursor:pointer}
+.mention-row:hover{background:var(--surface-2)}
+.mention-row-task{font-weight:600;font-size:13px}
+.mention-row-body{margin-top:2px}
