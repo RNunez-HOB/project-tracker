@@ -95,6 +95,7 @@
   let prefsApplied = false;
   let openTaskId = null;       // task whose modal is open (for comments)
   let commentsCache = [];
+  let projectSort = "name";    // Projects tab sort: name | priority | open
   const SB_STORAGE_KEY = "sb-" + ((cfg.SUPABASE_URL.match(/^https?:\/\/([^.]+)\./) || [])[1] || "") + "-auth-token";
   const filters = { search: "", project: "", assignee: "", tag: "", mine: false };
 
@@ -239,7 +240,7 @@
     document.documentElement.setAttribute("data-theme", myPrefs.theme === "light" ? "light" : "dark");
     if (prefsApplied) return;   // view/filter only on first load, not on every refresh
     prefsApplied = true;
-    if (myPrefs.view && ["board", "list", "graph", "team"].includes(myPrefs.view)) {
+    if (myPrefs.view && ["board", "list", "graph", "team", "projects"].includes(myPrefs.view)) {
       currentView = myPrefs.view;
       document.querySelectorAll(".view-tab").forEach((t) =>
         t.classList.toggle("active", t.dataset.view === currentView));
@@ -421,10 +422,12 @@
     $("list-view").classList.toggle("hidden", v !== "list");
     $("graph-view").classList.toggle("hidden", v !== "graph");
     $("team-view").classList.toggle("hidden", v !== "team");
+    $("projects-view").classList.toggle("hidden", v !== "projects");
     if (v === "board") renderBoard();
     else if (v === "list") renderList();
     else if (v === "graph") renderGraph();
     else if (v === "team") renderTeam();
+    else if (v === "projects") renderProjects();
   }
 
   function renderGraph() {
@@ -578,6 +581,107 @@
         render();
       }));
   }
+
+  /* ---------------- PROJECTS VIEW ---------------- */
+  const PRIO_RANK = { high: 3, medium: 2, low: 1 };
+  function projectStats(p) {
+    const open = tasks.filter((t) => t.project_id === p.id && !t.archived && t.status !== "done");
+    const team = [...new Set(open.flatMap((t) => t.assignees || []))];
+    return { open: open.length, team };
+  }
+  function renderProjects() {
+    const v = $("projects-view");
+    const stats = {};
+    projects.forEach((p) => { stats[p.id] = projectStats(p); });
+    const sorted = projects.slice().sort((a, b) => {
+      if (projectSort === "priority") {
+        const d = (PRIO_RANK[b.priority] || 2) - (PRIO_RANK[a.priority] || 2);
+        return d !== 0 ? d : stats[b.id].open - stats[a.id].open;
+      }
+      if (projectSort === "open") return stats[b.id].open - stats[a.id].open;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    v.innerHTML = `
+      <div class="projects-head">
+        <label class="proj-sort">Sort
+          <select id="proj-sort-sel">
+            <option value="name">A–Z</option>
+            <option value="priority">Priority</option>
+            <option value="open">Open tasks</option>
+          </select>
+        </label>
+        <button id="new-project-btn" class="btn btn-primary btn-sm">+ New project</button>
+      </div>
+      ${sorted.length ? `<table class="proj-table"><thead><tr>
+        <th>Project</th><th>Priority</th><th>Team</th><th>Tags</th><th>Open</th>
+      </tr></thead><tbody>${sorted.map((p) => {
+        const s = stats[p.id];
+        return `<tr data-id="${p.id}">
+          <td><span class="col-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:7px"></span><b>${esc(p.name)}</b>${p.description ? `<div class="muted small">${esc(p.description)}</div>` : ""}</td>
+          <td><span class="pill pri-${p.priority || "medium"}">${p.priority || "medium"}</span></td>
+          <td>${s.team.length ? `<span class="avatars">${s.team.slice(0, 6).map((a) => `<span class="avatar" title="${esc(a)}">${initials(a)}</span>`).join("")}</span>` : "—"}</td>
+          <td>${(p.tags && p.tags.length) ? p.tags.map((t) => `<span class="chip tag">${esc(t)}</span>`).join("") : "—"}</td>
+          <td>${s.open}</td>
+        </tr>`;
+      }).join("")}</tbody></table>` : '<div class="empty">No projects yet.</div>'}
+    `;
+    $("proj-sort-sel").value = projectSort;
+    $("proj-sort-sel").addEventListener("change", (e) => { projectSort = e.target.value; renderProjects(); });
+    $("new-project-btn").addEventListener("click", () => openProjectEdit(null));
+    v.querySelectorAll("tr[data-id]").forEach((r) =>
+      r.addEventListener("click", () => openProjectEdit(r.dataset.id)));
+  }
+
+  function openProjectEdit(id) {
+    const p = projects.find((x) => x.id === id);
+    $("pe-title").textContent = p ? "Edit project" : "New project";
+    $("pe-id").value = p ? p.id : "";
+    $("pe-name").value = p ? p.name : "";
+    $("pe-color").value = p ? (p.color || "#6366f1") : "#6366f1";
+    $("pe-priority").value = p ? (p.priority || "medium") : "medium";
+    $("pe-tags").value = p ? (p.tags || []).join(", ") : "";
+    $("pe-description").value = p ? (p.description || "") : "";
+    const canArchive = p && (isAdmin || p.created_by === currentUserId);
+    $("pe-archive-btn").classList.toggle("hidden", !canArchive);
+    $("project-edit-modal").classList.remove("hidden");
+  }
+
+  $("project-edit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = $("pe-id").value;
+    const payload = {
+      name: $("pe-name").value.trim(),
+      color: $("pe-color").value,
+      priority: $("pe-priority").value,
+      tags: splitList($("pe-tags").value),
+      description: $("pe-description").value.trim() || null,
+    };
+    if (!payload.name) return;
+    closeModals();
+    try {
+      if (id) {
+        const { error } = await sb.from("projects").update(payload).eq("id", id);
+        if (error) return toast("Error: " + error.message);
+        toast("Project saved");
+      } else {
+        payload.created_by = currentUserId;
+        const { error } = await sb.from("projects").insert(payload);
+        if (error) return toast("Error: " + error.message);
+        toast("Project added");
+      }
+      await loadAll();
+    } catch (err) {
+      toast("Couldn't save — has add-project-fields.sql been run? (" + (err.message || err) + ")");
+    }
+  });
+
+  $("pe-archive-btn").addEventListener("click", async () => {
+    const id = $("pe-id").value;
+    if (!id || !confirm("Archive this project? Its tasks stay but lose the bucket.")) return;
+    closeModals();
+    await sb.from("projects").update({ archived: true }).eq("id", id);
+    await loadAll();
+  });
 
   /* ---------------- ASSIGNEE PICKER ---------------- */
   function mountPicker(root) {

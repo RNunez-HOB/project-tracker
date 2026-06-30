@@ -338,3 +338,15 @@ tr:hover td{background:var(--surface-2);cursor:pointer}
 .workload-fill{display:block;height:100%;background:var(--primary);border-radius:7px}
 .workload-count{flex:0 0 auto;font-family:var(--mono);font-size:12px;color:var(--muted);min-width:24px;text-align:right}
 .workload-row:hover .workload-name{color:var(--primary)}
+
+/* ---------- projects view ---------- */
+.projects-view{padding:0 20px 32px}
+.projects-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.projects-head .proj-sort{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted)}
+.projects-head .proj-sort select{padding:6px 9px;border:1.5px solid var(--border);border-radius:8px;
+  background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12.5px;margin:0}
+.projects-head .btn{margin-left:auto}
+.proj-table td .avatars{display:inline-flex}
+.proj-table td .chip{display:inline-block;margin:1px 2px}
+.proj-table tr{cursor:pointer}
+.modal-body input[type=color]{height:38px;padding:2px;cursor:pointer}
