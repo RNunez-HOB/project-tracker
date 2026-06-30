@@ -214,6 +214,7 @@
       tasks = tk || [];
       refreshFilters();
       render();
+      startRealtime();           // begin live updates only after the board has painted
     } catch (e) {
       // Timed out or unexpected failure — never leave a silent blank board.
       toast("Couldn't load the board — retrying…");
@@ -224,11 +225,18 @@
     }
   }
 
-  // Live updates so consultants see each other's changes
-  sb.channel("rt")
-    .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, loadAll)
-    .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, loadAll)
-    .subscribe();
+  // Live updates so consultants see each other's changes. Started only AFTER the first
+  // data load (called from loadAll) so the realtime channel-join handshake can't hold
+  // the auth lock and delay the board's initial render by ~10s.
+  let realtimeStarted = false;
+  function startRealtime() {
+    if (realtimeStarted) return;
+    realtimeStarted = true;
+    sb.channel("rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, loadAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, loadAll)
+      .subscribe();
+  }
 
   // Fallback so the board stays current even if the realtime socket drops:
   // poll every 20s while signed in, and refresh whenever the tab regains focus.
