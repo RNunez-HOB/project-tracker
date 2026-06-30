@@ -274,3 +274,67 @@ tr:hover td{background:var(--surface-2);cursor:pointer}
   .toolbar{flex-direction:column;align-items:stretch}
   .toolbar-right{justify-content:space-between}
 }
+
+/* ---------- light theme (set via <html data-theme="light">) ---------- */
+:root[data-theme="light"]{
+  --bg:#f4f4f6; --surface:#ffffff; --surface-2:#ececef;
+  --border:rgba(0,0,0,.12); --border-strong:rgba(0,0,0,.28);
+  --text:#1c1c1f; --muted:#5b5b63; --faint:#8a8a93;
+  --shadow:rgba(0,0,0,.16);
+  --grid:rgba(0,0,0,.05);
+}
+
+/* ---------- assignee / stakeholder picker ---------- */
+.people-picker{position:relative;border:1.5px solid var(--border);background:var(--bg);border-radius:8px;
+  padding:5px;margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.people-picker:focus-within{border-color:var(--primary)}
+.chip-pick{display:inline-flex;align-items:center;gap:5px;background:rgba(226,101,79,.16);color:#ef9c8c;
+  border-radius:6px;padding:3px 6px 3px 9px;font-size:12px;font-family:var(--mono)}
+.chip-pick.chip-adhoc{background:var(--surface-2);color:var(--muted);border:1px dashed var(--border-strong)}
+.chip-x{border:none;background:transparent;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0}
+.people-picker .picker-input{flex:1;min-width:120px;border:none!important;background:transparent!important;
+  margin:0!important;padding:4px 6px!important;width:auto!important;color:var(--text);font-family:var(--sans);font-size:13.5px}
+.people-picker .picker-input:focus{outline:none}
+.picker-menu{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--surface);
+  border:1.5px solid var(--border-strong);border-radius:8px;box-shadow:4px 4px 0 var(--shadow);
+  z-index:60;max-height:200px;overflow:auto}
+.picker-opt{padding:8px 11px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.picker-opt:hover{background:var(--surface-2)}
+.picker-add{font-style:italic;color:var(--muted)}
+
+/* ---------- accountability ---------- */
+.card-by{margin-top:7px;font-size:10.5px;color:var(--faint);font-family:var(--mono)}
+
+/* ---------- comments ---------- */
+.comments{border-top:1px solid var(--border);padding:16px 20px}
+.comments-head{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--muted)}
+.comment-list{display:flex;flex-direction:column;gap:12px;max-height:260px;overflow:auto;margin-bottom:12px}
+.comment-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.comment-head .avatar{margin:0;width:20px;height:20px;border:none}
+.comment-body{font-size:13px;white-space:pre-wrap;word-break:break-word}
+.comment-del{margin-left:auto;border:none;background:transparent;color:var(--faint);cursor:pointer;font-size:14px;line-height:1}
+.comment-del:hover{color:var(--danger)}
+.mention{color:var(--primary);font-weight:600}
+.comment-composer{position:relative;display:flex;gap:8px;align-items:flex-end}
+.comment-composer textarea{flex:1;padding:9px 11px;border:1.5px solid var(--border);background:var(--bg);
+  color:var(--text);border-radius:8px;font-family:var(--sans);font-size:13.5px;resize:vertical}
+.comment-composer textarea:focus{outline:none;border-color:var(--primary)}
+.mention-menu{position:absolute;bottom:100%;left:0;margin-bottom:4px;background:var(--surface);
+  border:1.5px solid var(--border-strong);border-radius:8px;box-shadow:4px 4px 0 var(--shadow);
+  z-index:60;max-height:180px;overflow:auto;min-width:240px}
+.mention-item{padding:8px 11px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.mention-item:hover{background:var(--surface-2)}
+
+/* ---------- team / workload view ---------- */
+.team-view{padding:0 20px 32px;max-width:720px}
+.workload{background:var(--surface);border:2px solid var(--border);border-radius:13px;
+  box-shadow:4px 4px 0 var(--shadow);padding:16px 18px}
+.workload-title{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--faint);margin-bottom:14px}
+.workload-row{display:flex;align-items:center;gap:12px;padding:7px 0;cursor:pointer;border-bottom:1px solid var(--border)}
+.workload-row:last-child{border-bottom:none}
+.workload-name{flex:0 0 160px;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workload-bar{flex:1;height:14px;background:var(--surface-2);border-radius:7px;overflow:hidden}
+.workload-fill{display:block;height:100%;background:var(--primary);border-radius:7px}
+.workload-count{flex:0 0 auto;font-family:var(--mono);font-size:12px;color:var(--muted);min-width:24px;text-align:right}
+.workload-row:hover .workload-name{color:var(--primary)}

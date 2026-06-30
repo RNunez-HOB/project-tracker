@@ -9,7 +9,7 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <!-- Bump the ?v= number on every deploy so browsers never serve a stale cached copy. -->
-  <link rel="stylesheet" href="styles.css?v=11" />
+  <link rel="stylesheet" href="styles.css?v=13" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='14' y='14' width='72' height='72' rx='16' fill='%23e2654f'/><rect x='37' y='37' width='26' height='26' rx='4' fill='%2314121a' transform='rotate(45 50 50)'/></svg>" />
 </head>
 <body>
@@ -34,6 +34,7 @@
       <div class="brand"><span class="brand-mark"></span> <span id="brand-name">Project Tracker</span></div>
       <div class="topbar-actions">
         <span id="user-email" class="muted small"></span>
+        <button id="my-names-btn" class="btn btn-ghost btn-sm">Settings</button>
         <button id="signout-btn" class="btn btn-ghost btn-sm">Sign out</button>
       </div>
     </header>
@@ -43,12 +44,14 @@
         <button class="view-tab active" data-view="board">Board</button>
         <button class="view-tab" data-view="list">List</button>
         <button class="view-tab" data-view="graph">Graph</button>
+        <button class="view-tab" data-view="team">Team</button>
       </div>
       <div class="toolbar-right">
         <input id="search" class="search" type="search" placeholder="Search tasks…" />
         <select id="filter-project" class="filter"><option value="">All projects</option></select>
         <select id="filter-assignee" class="filter"><option value="">All people</option></select>
         <select id="filter-tag" class="filter"><option value="">All tags</option></select>
+        <button id="mine-toggle" class="btn btn-ghost btn-sm">Assigned to me</button>
         <button id="manage-projects-btn" class="btn btn-ghost btn-sm">Projects</button>
         <button id="new-task-btn" class="btn btn-primary btn-sm">+ New task</button>
       </div>
@@ -57,6 +60,7 @@
     <main id="board-view" class="board"></main>
     <main id="list-view" class="list-view hidden"></main>
     <main id="graph-view" class="graph-view hidden"></main>
+    <main id="team-view" class="team-view hidden"></main>
   </div>
 
   <!-- ===================== TASK MODAL ===================== -->
@@ -99,22 +103,43 @@
             <input id="f-deadline" type="date" />
           </label>
         </div>
-        <label>Responsible people <span class="hint">(comma-separated)</span>
-          <input id="f-assignees" type="text" placeholder="Jane, Marco" />
+        <label>Responsible people <span class="hint">(type to pick from your team, or add anyone)</span>
+          <div id="pick-assignees" class="people-picker">
+            <div class="chips-row"></div>
+            <input type="text" class="picker-input" autocomplete="off" placeholder="Type a name…" />
+            <div class="picker-menu hidden"></div>
+          </div>
         </label>
-        <label>Stakeholders <span class="hint">(comma-separated)</span>
-          <input id="f-stakeholders" type="text" placeholder="Client name, Partner" />
+        <label>Stakeholders <span class="hint">(type to pick, or add anyone)</span>
+          <div id="pick-stakeholders" class="people-picker">
+            <div class="chips-row"></div>
+            <input type="text" class="picker-input" autocomplete="off" placeholder="Client name, partner…" />
+            <div class="picker-menu hidden"></div>
+          </div>
         </label>
         <label>Tags <span class="hint">(comma-separated)</span>
           <input id="f-tags" type="text" placeholder="urgent, research, billable" />
         </label>
         <div class="modal-foot">
-          <button type="button" id="delete-task-btn" class="btn btn-danger btn-sm hidden">Delete</button>
+          <button type="button" id="delete-task-btn" class="btn btn-danger btn-sm hidden">Archive</button>
+          <button type="button" id="hard-delete-task-btn" class="btn btn-danger btn-sm hidden">Delete permanently</button>
+          <span id="task-updated-by" class="muted small"></span>
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" data-close>Cancel</button>
           <button type="submit" class="btn btn-primary">Save task</button>
         </div>
       </form>
+
+      <!-- Comments thread (only on existing tasks) -->
+      <div id="task-comments" class="comments hidden">
+        <h3 class="comments-head">Comments</h3>
+        <div id="comment-list" class="comment-list"></div>
+        <div class="comment-composer">
+          <textarea id="comment-input" rows="2" placeholder="Write a comment… use @ to mention someone"></textarea>
+          <div id="mention-menu" class="mention-menu hidden"></div>
+          <button type="button" id="comment-send" class="btn btn-primary btn-sm">Comment</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -136,12 +161,55 @@
     </div>
   </div>
 
+  <!-- ===================== SETTINGS MODAL ===================== -->
+  <div id="profile-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Your settings</h2>
+        <button class="modal-close" data-close>&times;</button>
+      </div>
+      <form id="profile-form" class="modal-body">
+        <label>Your name(s) on the board <span class="hint">(comma-separated)</span>
+          <input id="alias-input" type="text" placeholder="e.g. Roberto, Rob, R. Nunez" />
+        </label>
+        <p class="muted small">Used by the “Assigned to me” filter — tasks whose assignees match any of these.</p>
+        <div class="row">
+          <label>Default view
+            <select id="pref-view">
+              <option value="board">Board</option>
+              <option value="list">List</option>
+              <option value="graph">Graph</option>
+              <option value="team">Team</option>
+            </select>
+          </label>
+          <label>Default filter
+            <select id="pref-filter">
+              <option value="">All tasks</option>
+              <option value="mine">Assigned to me</option>
+            </select>
+          </label>
+        </div>
+        <label>Theme
+          <select id="pref-theme">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </label>
+        <div class="modal-foot">
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="toast" class="toast hidden"></div>
 
   <!-- Supabase client (official CDN build) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=11"></script>
-  <script src="graph.js?v=11"></script>
-  <script src="app.js?v=11"></script>
+  <script src="config.js?v=13"></script>
+  <script src="graph.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

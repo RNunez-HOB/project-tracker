@@ -1,0 +1,24 @@
+name: supabase-keepalive
+# Prevents the Supabase free-tier project from auto-pausing after 7 days of inactivity.
+# Hits a cheap REST query once a day so Postgres registers activity.
+# The URL + anon key are already public (they ship in config.js), so hardcoding them here
+# adds no new exposure. If you prefer, move them to repo secrets and reference them instead.
+
+on:
+  schedule:
+    - cron: "17 6 * * *"      # daily at 06:17 UTC (off the top of the hour on purpose)
+  workflow_dispatch: {}        # lets you run it manually from the Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://vwwoljbhtdjlqozziuzx.supabase.co/rest/v1/projects?select=id&limit=1" \
+            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3d29samJodGRqbHFvenppdXp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzU3ODYsImV4cCI6MjA5ODMxMTc4Nn0.CR-O_ttTbFUR3W29NexfxON910eFhWbk07XSorPJGwM" \
+            -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3d29samJodGRqbHFvenppdXp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MzU3ODYsImV4cCI6MjA5ODMxMTc4Nn0.CR-O_ttTbFUR3W29NexfxON910eFhWbk07XSorPJGwM")
+          echo "HTTP $code"
+          # 200 (or even 401/empty) means the request reached Postgres and reset the idle timer.
+          if [ "$code" = "000" ]; then echo "No response from Supabase"; exit 1; fi
