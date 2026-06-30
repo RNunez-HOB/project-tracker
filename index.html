@@ -9,7 +9,7 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <!-- Bump the ?v= number on every deploy so browsers never serve a stale cached copy. -->
-  <link rel="stylesheet" href="styles.css?v=15" />
+  <link rel="stylesheet" href="styles.css?v=16" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='14' y='14' width='72' height='72' rx='16' fill='%23e2654f'/><rect x='37' y='37' width='26' height='26' rx='4' fill='%2314121a' transform='rotate(45 50 50)'/></svg>" />
 </head>
 <body>
@@ -129,7 +129,6 @@
         <div class="modal-foot">
           <button type="button" id="delete-task-btn" class="btn btn-danger btn-sm hidden">Archive</button>
           <button type="button" id="hard-delete-task-btn" class="btn btn-danger btn-sm hidden">Delete permanently</button>
-          <span id="task-updated-by" class="muted small"></span>
           <span class="spacer"></span>
           <button type="button" class="btn btn-ghost" data-close>Cancel</button>
           <button type="submit" class="btn btn-primary">Save task</button>
@@ -257,8 +256,8 @@
 
   <!-- Supabase client (official CDN build) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=15"></script>
-  <script src="graph.js?v=15"></script>
-  <script src="app.js?v=15"></script>
+  <script src="config.js?v=16"></script>
+  <script src="graph.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

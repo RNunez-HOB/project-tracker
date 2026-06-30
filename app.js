@@ -770,7 +770,6 @@
     $("delete-task-btn").classList.toggle("hidden", !t);
     const canHard = t && (isAdmin || t.created_by === currentUserId);
     $("hard-delete-task-btn").classList.toggle("hidden", !canHard);
-    $("task-updated-by").textContent = (t && t.updated_by) ? "Last updated by " + nameFor(t.updated_by) : "";
     // comments
     const cbox = $("task-comments");
     if (t) { cbox.classList.remove("hidden"); $("comment-input").value = ""; loadComments(t.id); }

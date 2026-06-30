@@ -172,7 +172,7 @@ tr:hover td{background:var(--surface-2);cursor:pointer}
 .modal-body input:focus,.modal-body textarea:focus,.modal-body select:focus{outline:none;border-color:var(--primary)}
 .modal-body select option{background:var(--surface)}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.modal-foot{display:flex;align-items:center;gap:8px;margin-top:8px}
+.modal-foot{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
 .modal-foot .spacer{flex:1}
 
 .project-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
