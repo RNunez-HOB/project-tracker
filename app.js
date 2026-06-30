@@ -65,18 +65,14 @@
     };
   }
 
-  // supabase-js's default cross-tab lock uses the browser Web Locks API, which can
-  // deadlock if a token refresh stalls (the "frozen dashboard, reconnect WiFi to fix"
-  // bug). An earlier serialising in-app lock turned out to be worse — it wedged every
-  // restored session, blocking the board, sign-out and saving. Use a minimal
-  // pass-through lock instead: it adds no Web Locks and no queue of its own, while
-  // supabase-js still serialises overlapping auth calls internally within the tab.
-  const passthroughLock = async (_name, _acquireTimeout, fn) => await fn();
-
+  // Use supabase-js's DEFAULT auth lock. Two custom locks were tried and both broke
+  // restored sessions: a serialising queue wedged, and a no-op pass-through let the
+  // concurrent init calls (getSession + onAuthStateChange + realtime) race and wedge
+  // the auth client, so queries never got a token and the board never rendered. The
+  // built-in Web Locks lock serialises those calls correctly.
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
       storage: authStorage,      // localStorage, or in-memory if the browser blocks it
-      lock: passthroughLock,     // no Web Locks deadlock, and no queue that can wedge
       flowType: "pkce",          // auth code exchange — token never appears in the URL
       detectSessionInUrl: true,  // process the code when the link lands
       persistSession: true,
@@ -191,9 +187,14 @@
     if (loadingNow) { reloadQueued = true; return; }
     loadingNow = true;
     try {
-      const [{ data: pj, error: e1 }, { data: tk, error: e2 }] = await Promise.all([
-        sb.from("projects").select("*").eq("archived", false).order("created_at"),
-        sb.from("tasks").select("*").order("deadline", { nullsFirst: false }),
+      // Race the load against a timeout so a stalled auth/query can never leave the
+      // board blank forever. If it hangs, we surface it and retry instead of wedging.
+      const [{ data: pj, error: e1 }, { data: tk, error: e2 }] = await Promise.race([
+        Promise.all([
+          sb.from("projects").select("*").eq("archived", false).order("created_at"),
+          sb.from("tasks").select("*").order("deadline", { nullsFirst: false }),
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Load timed out")), 12000)),
       ]);
       const err = e1 || e2;
       if (err) {
@@ -213,6 +214,10 @@
       tasks = tk || [];
       refreshFilters();
       render();
+    } catch (e) {
+      // Timed out or unexpected failure — never leave a silent blank board.
+      toast("Couldn't load the board — retrying…");
+      setTimeout(() => { if (currentUserId) loadAll(); }, 3000);
     } finally {
       loadingNow = false;
       if (reloadQueued) { reloadQueued = false; loadAll(); }
