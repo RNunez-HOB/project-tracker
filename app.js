@@ -68,8 +68,8 @@
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
       storage: authStorage,      // localStorage, or in-memory if the browser blocks it
-      flowType: "implicit",      // token in the link — works across devices/browsers
-      detectSessionInUrl: true,  // process the token when the link lands
+      flowType: "pkce",          // auth code exchange — token never appears in the URL
+      detectSessionInUrl: true,  // process the code when the link lands
       persistSession: true,
       autoRefreshToken: true,
     },
@@ -95,10 +95,31 @@
   function showAuth() { $("auth-screen").classList.remove("hidden"); $("app").classList.add("hidden"); }
   function showApp()  { $("auth-screen").classList.add("hidden"); $("app").classList.remove("hidden"); }
 
+  function clearUrlToken() {
+    // Sign-in leaves auth params in the URL — an access token in the hash (implicit)
+    // or a ?code=... (PKCE). Once signed in, strip them so reopening or restoring the
+    // tab (Ctrl+Shift+T) can't replay stale auth and leave the app "logged in but frozen".
+    if (window.location.hash || window.location.search) {
+      try { history.replaceState(null, "", window.location.pathname); } catch (_) {}
+    }
+  }
+
   $("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = $("login-email").value.trim();
     const msg = $("auth-msg");
+
+    // Domain allow-list. The Supabase trigger (restrict-signin-domains.sql) is the
+    // real enforcement; this just gives immediate feedback and avoids emailing
+    // links to addresses that can't sign in anyway.
+    const allowed = cfg.ALLOWED_EMAIL_DOMAINS || [];
+    const domain = (email.split("@")[1] || "").toLowerCase();
+    if (allowed.length && !allowed.includes(domain)) {
+      msg.className = "auth-msg err";
+      msg.textContent = "Sign-in is restricted to approved company email addresses.";
+      return;
+    }
+
     msg.className = "auth-msg";
     msg.textContent = "Sending…";
     const { error } = await sb.auth.signInWithOtp({
@@ -121,6 +142,7 @@
       currentUserId = session.user.id;
       $("user-email").textContent = session.user.email;
       showApp();
+      clearUrlToken();
       await loadAll();
     } else {
       showAuth();
@@ -133,11 +155,12 @@
       currentUserId = data.session.user.id;
       $("user-email").textContent = data.session.user.email;
       showApp();
+      clearUrlToken();
       loadAll();
     } else {
       showAuth();
     }
-  });
+  }).catch(() => showAuth());
 
   /* ---------------- DATA ---------------- */
   let loadingNow = false;

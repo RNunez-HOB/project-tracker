@@ -10,4 +10,9 @@ window.APP_CONFIG = {
 
   // Cosmetic — change to your firm's name.
   APP_NAME: "Project Tracker",
+
+  // Only these email domains may sign in (server-side enforced by
+  // restrict-signin-domains.sql; this list gives instant feedback in the UI).
+  // Keep this list in sync with that SQL file.
+  ALLOWED_EMAIL_DOMAINS: ["houseofbeta.nl", "talent-pro.com", "redmore.eu", "houseofhr.com"],
 };
