@@ -94,6 +94,8 @@
   let currentView = "board";
   let graphInst = null;
   let currentUserId = null;
+  let accessToken = null;
+  const SB_STORAGE_KEY = "sb-" + ((cfg.SUPABASE_URL.match(/^https?:\/\/([^.]+)\./) || [])[1] || "") + "-auth-token";
   const filters = { search: "", project: "", assignee: "", tag: "" };
 
   /* ---------------- AUTH ---------------- */
@@ -145,27 +147,39 @@
   sb.auth.onAuthStateChange(async (_event, session) => {
     if (session && session.user) {
       currentUserId = session.user.id;
+      accessToken = session.access_token;
       $("user-email").textContent = session.user.email;
       showApp();
       clearUrlToken();
       await loadAll();
     } else {
+      accessToken = null;
+      currentUserId = null;
       showAuth();
     }
   });
 
-  // Handle initial session (e.g. returning from magic link)
-  sb.auth.getSession().then(({ data }) => {
-    if (data.session) {
-      currentUserId = data.session.user.id;
-      $("user-email").textContent = data.session.user.email;
+  // Fast path: render the board immediately from the stored session token, WITHOUT
+  // waiting on supabase-js's auth init — that init can stall ~10s on its lock for a
+  // restored session, and the board's queries (below) were stuck behind it. We read the
+  // token straight from storage and fetch via REST; onAuthStateChange above still runs
+  // and keeps everything in sync (and handles sign-in links / sign-out).
+  function earlyBoot() {
+    const s = sessionFromStorage();
+    if (s && s.access_token) {
+      accessToken = s.access_token;
+      currentUserId = s.user && s.user.id;
+      if (s.user && s.user.email) $("user-email").textContent = s.user.email;
       showApp();
       clearUrlToken();
       loadAll();
-    } else {
+    } else if (!window.location.hash && !window.location.search) {
+      // Not signed in and not returning from a sign-in link → show login now.
       showAuth();
     }
-  }).catch(() => showAuth());
+  }
+  // Run after the whole script has initialised (so loadAll and its state vars exist).
+  queueMicrotask(earlyBoot);
 
   // Safety net: if auth init still hasn't shown either screen after 8s (e.g. a
   // network stall during getSession), fall back to the sign-in screen so the user
@@ -179,6 +193,30 @@
   }, 8000);
 
   /* ---------------- DATA ---------------- */
+  // Read the persisted Supabase session straight from storage (no auth-lock involved).
+  function sessionFromStorage() {
+    try {
+      const raw = (window.localStorage && window.localStorage.getItem(SB_STORAGE_KEY)) || null;
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && o.access_token ? o : (o && o.currentSession) || null;
+    } catch (_) { return null; }
+  }
+
+  // Fetch a table directly from PostgREST with the token we already hold. This bypasses
+  // supabase-js's per-query getSession(), which on a restored session stalls ~10s on the
+  // auth lock at startup — that delay was blocking the whole board.
+  async function rest(path) {
+    const res = await fetch(cfg.SUPABASE_URL + "/rest/v1/" + path, {
+      headers: {
+        apikey: cfg.SUPABASE_ANON_KEY,
+        Authorization: "Bearer " + (accessToken || cfg.SUPABASE_ANON_KEY),
+      },
+    });
+    if (!res.ok) { const e = new Error("HTTP " + res.status); e.status = res.status; throw e; }
+    return res.json();
+  }
+
   let loadingNow = false;
   let reloadQueued = false;
   async function loadAll() {
@@ -187,36 +225,27 @@
     if (loadingNow) { reloadQueued = true; return; }
     loadingNow = true;
     try {
-      // Race the load against a timeout so a stalled auth/query can never leave the
-      // board blank forever. If it hangs, we surface it and retry instead of wedging.
-      const [{ data: pj, error: e1 }, { data: tk, error: e2 }] = await Promise.race([
+      // Race against a timeout so a stalled load can never leave the board blank forever.
+      const [pj, tk] = await Promise.race([
         Promise.all([
-          sb.from("projects").select("*").eq("archived", false).order("created_at"),
-          sb.from("tasks").select("*").order("deadline", { nullsFirst: false }),
+          rest("projects?select=*&archived=eq.false&order=created_at.asc"),
+          rest("tasks?select=*&order=deadline.asc.nullslast"),
         ]),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Load timed out")), 12000)),
       ]);
-      const err = e1 || e2;
-      if (err) {
-        // A dead/expired session makes every request fail and the board go
-        // blank with no clue why. Recover to the sign-in screen instead of
-        // leaving the user stuck.
-        if (err.code === "PGRST301" || err.status === 401 ||
-            /jwt|token|expired|not authenticated/i.test(err.message || "")) {
-          try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
-          showAuth();
-          return;
-        }
-        toast("Couldn't load data: " + err.message);
-        return;
-      }
       projects = pj || [];
       tasks = tk || [];
       refreshFilters();
       render();
       startRealtime();           // begin live updates only after the board has painted
     } catch (e) {
-      // Timed out or unexpected failure — never leave a silent blank board.
+      if (e.status === 401 || e.status === 403) {
+        // Token rejected (expired/invalid) — drop to sign-in instead of looping.
+        try { await sb.auth.signOut({ scope: "local" }); } catch (_) {}
+        showAuth();
+        return;
+      }
+      // Timed out or transient failure — never leave a silent blank board.
       toast("Couldn't load the board — retrying…");
       setTimeout(() => { if (currentUserId) loadAll(); }, 3000);
     } finally {
