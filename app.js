@@ -65,23 +65,18 @@
     };
   }
 
-  // Workaround for a known supabase-js freeze: its default cross-tab lock uses the
-  // browser Web Locks API, which deadlocks if a token-refresh request stalls (laptop
-  // sleep, dropped WiFi) while holding the lock — then getSession() never resolves and
-  // the dashboard hangs blank. (Reconnecting the network is what "fixes" it for people,
-  // because it releases the stuck request.) This in-app lock just serialises auth calls
-  // without Web Locks, so a stalled request can't wedge the whole app.
-  let _authChain = Promise.resolve();
-  function memoryLock(_name, _acquireTimeout, fn) {
-    const run = _authChain.then(() => fn());
-    _authChain = run.then(() => {}, () => {}); // keep the queue moving on success or error
-    return run;
-  }
+  // supabase-js's default cross-tab lock uses the browser Web Locks API, which can
+  // deadlock if a token refresh stalls (the "frozen dashboard, reconnect WiFi to fix"
+  // bug). An earlier serialising in-app lock turned out to be worse — it wedged every
+  // restored session, blocking the board, sign-out and saving. Use a minimal
+  // pass-through lock instead: it adds no Web Locks and no queue of its own, while
+  // supabase-js still serialises overlapping auth calls internally within the tab.
+  const passthroughLock = async (_name, _acquireTimeout, fn) => await fn();
 
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
       storage: authStorage,      // localStorage, or in-memory if the browser blocks it
-      lock: memoryLock,          // avoid the Web Locks deadlock described above
+      lock: passthroughLock,     // no Web Locks deadlock, and no queue that can wedge
       flowType: "pkce",          // auth code exchange — token never appears in the URL
       detectSessionInUrl: true,  // process the code when the link lands
       persistSession: true,
