@@ -65,9 +65,23 @@
     };
   }
 
+  // Workaround for a known supabase-js freeze: its default cross-tab lock uses the
+  // browser Web Locks API, which deadlocks if a token-refresh request stalls (laptop
+  // sleep, dropped WiFi) while holding the lock — then getSession() never resolves and
+  // the dashboard hangs blank. (Reconnecting the network is what "fixes" it for people,
+  // because it releases the stuck request.) This in-app lock just serialises auth calls
+  // without Web Locks, so a stalled request can't wedge the whole app.
+  let _authChain = Promise.resolve();
+  function memoryLock(_name, _acquireTimeout, fn) {
+    const run = _authChain.then(() => fn());
+    _authChain = run.then(() => {}, () => {}); // keep the queue moving on success or error
+    return run;
+  }
+
   const sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
       storage: authStorage,      // localStorage, or in-memory if the browser blocks it
+      lock: memoryLock,          // avoid the Web Locks deadlock described above
       flowType: "pkce",          // auth code exchange — token never appears in the URL
       detectSessionInUrl: true,  // process the code when the link lands
       persistSession: true,
@@ -161,6 +175,17 @@
       showAuth();
     }
   }).catch(() => showAuth());
+
+  // Safety net: if auth init still hasn't shown either screen after 8s (e.g. a
+  // network stall during getSession), fall back to the sign-in screen so the user
+  // can retry instead of staring at a frozen blank page.
+  setTimeout(() => {
+    if ($("auth-screen").classList.contains("hidden") && $("app").classList.contains("hidden")) {
+      showAuth();
+      $("auth-msg").className = "auth-msg err";
+      $("auth-msg").textContent = "Taking longer than usual to connect — check your connection and reload.";
+    }
+  }, 8000);
 
   /* ---------------- DATA ---------------- */
   let loadingNow = false;
