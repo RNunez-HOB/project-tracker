@@ -1,0 +1,23 @@
+# Cloudflare Pages headers file. (GitHub Pages ignored this — Cloudflare honours it.)
+
+# Always re-fetch the entry HTML so a new deploy shows up immediately
+# (no more stale index.html pointing at an old app.js).
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+
+# Assets are versioned via ?v=N in index.html, so they're safe to cache hard.
+/*.js
+  Cache-Control: public, max-age=31536000
+/*.css
+  Cache-Control: public, max-age=31536000
+
+# Baseline security headers (these were impossible on GitHub Pages).
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  # Optional, stronger hardening — enable AFTER testing sign-in + board + graph,
+  # by removing the leading "# " on the next line:
+  # Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'
