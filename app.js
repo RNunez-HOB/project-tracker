@@ -458,7 +458,27 @@
   function nameFor(uuid) {
     if (!uuid) return "";
     const p = profileById[uuid];
-    return p ? (p.full_name || p.email || "Unknown") : "Unknown";
+    return p ? (personLabel(p) || "Unknown") : "Unknown";
+  }
+  // Friendly label for a person: their first alias if set, else full name, else email.
+  function personLabel(p) {
+    if (!p) return "";
+    if (p.aliases && p.aliases.length) return p.aliases[0];
+    return p.full_name || p.email || "";
+  }
+  // Resolve a stored assignee string back to a directory profile (matches name/email/alias).
+  function profileForName(str) {
+    const lc = String(str).trim().toLowerCase();
+    if (!lc) return null;
+    return directory.find((p) =>
+      (p.full_name || "").toLowerCase() === lc ||
+      (p.email || "").toLowerCase() === lc ||
+      (p.aliases || []).some((a) => String(a).toLowerCase() === lc)) || null;
+  }
+  // What to SHOW for a stored assignee string — the person's alias-preferred label.
+  function assigneeLabel(str) {
+    const p = profileForName(str);
+    return p ? personLabel(p) : str;
   }
 
   function renderBoard() {
@@ -506,7 +526,7 @@
       <div class="card-meta">
         <span class="pill pri-${t.priority || "medium"}">${t.priority || "medium"}</span>
         ${t.deadline ? `<span class="due ${late ? "late" : ""}">${fmtDate(t.deadline)}</span>` : ""}
-        ${people.length ? `<span class="avatars">${people.map((a)=>`<span class="avatar" title="${esc(a)}">${initials(a)}</span>`).join("")}</span>` : ""}
+        ${people.length ? `<span class="avatars">${people.map((a)=>{const lbl=assigneeLabel(a);return `<span class="avatar" title="${esc(lbl)}">${initials(lbl)}</span>`;}).join("")}</span>` : ""}
       </div>
       ${by ? `<div class="card-by muted small">by ${esc(by)}</div>` : ""}
     </div>`;
@@ -529,7 +549,7 @@
           <td><span class="status-tag s-${t.status}">${statusLabel(t.status)}</span></td>
           <td><span class="pill pri-${t.priority||"medium"}">${t.priority||"medium"}</span></td>
           <td class="${late?"due late":""}">${t.deadline ? fmtDate(t.deadline) : "—"}</td>
-          <td>${(t.assignees||[]).join(", ") || "—"}</td>
+          <td>${(t.assignees||[]).map(assigneeLabel).join(", ") || "—"}</td>
           <td>${(t.tags||[]).join(", ") || "—"}</td>
           <td>${t.created_by ? esc(nameFor(t.created_by)) : "—"}</td>
         </tr>`;
@@ -542,10 +562,11 @@
   function aggregateWorkload() {
     const canon = {};   // lower-cased alias/name -> canonical display name
     directory.forEach((p) => {
-      const disp = p.full_name || p.email;
+      const disp = personLabel(p);
       if (!disp) return;
-      canon[disp.toLowerCase()] = disp;
-      (p.aliases || []).forEach((a) => { if (a) canon[String(a).toLowerCase()] = disp; });
+      [p.full_name, p.email, ...(p.aliases || [])].filter(Boolean).forEach((k) => {
+        canon[String(k).toLowerCase()] = disp;
+      });
     });
     const counts = {};
     tasks.forEach((t) => {
@@ -622,7 +643,7 @@
         return `<tr data-id="${p.id}">
           <td><span class="col-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:7px"></span><b>${esc(p.name)}</b>${p.description ? `<div class="muted small">${esc(p.description)}</div>` : ""}</td>
           <td><span class="pill pri-${p.priority || "medium"}">${p.priority || "medium"}</span></td>
-          <td>${s.team.length ? `<span class="avatars">${s.team.slice(0, 6).map((a) => `<span class="avatar" title="${esc(a)}">${initials(a)}</span>`).join("")}</span>` : "—"}</td>
+          <td>${s.team.length ? `<span class="avatars">${s.team.slice(0, 6).map((a) => {const lbl=assigneeLabel(a);return `<span class="avatar" title="${esc(lbl)}">${initials(lbl)}</span>`;}).join("")}</span>` : "—"}</td>
           <td>${(p.tags && p.tags.length) ? p.tags.map((t) => `<span class="chip tag">${esc(t)}</span>`).join("") : "—"}</td>
           <td>${s.open}</td>
         </tr>`;
@@ -694,13 +715,11 @@
     const menu = root.querySelector(".picker-menu");
 
     function isKnown(name) {
-      const lc = name.toLowerCase();
-      return directory.some((p) =>
-        (p.full_name || "").toLowerCase() === lc || (p.email || "").toLowerCase() === lc);
+      return !!profileForName(name);
     }
     function renderChips() {
       chipsRow.innerHTML = values.map((v, i) =>
-        `<span class="chip-pick${isKnown(v) ? "" : " chip-adhoc"}">${esc(v)}<button type="button" class="chip-x" data-i="${i}">×</button></span>`
+        `<span class="chip-pick${isKnown(v) ? "" : " chip-adhoc"}">${esc(assigneeLabel(v))}<button type="button" class="chip-x" data-i="${i}">×</button></span>`
       ).join("");
       chipsRow.querySelectorAll(".chip-x").forEach((b) =>
         b.addEventListener("click", () => { values.splice(+b.dataset.i, 1); renderChips(); }));
@@ -715,12 +734,12 @@
       const q = raw.toLowerCase();
       const chosen = new Set(values.map((v) => v.toLowerCase()));
       const hits = directory.filter((p) => {
-        if (chosen.has((p.full_name || "").toLowerCase())) return false;
+        if (chosen.has(personLabel(p).toLowerCase())) return false;
         const hay = [p.full_name, p.email, ...(p.aliases || [])].join(" ").toLowerCase();
         return q ? hay.includes(q) : true;
       }).slice(0, 8);
       let html = hits.map((p) =>
-        `<div class="picker-opt" data-name="${esc(p.full_name || p.email)}">${esc(p.full_name || p.email)}<span class="muted small"> ${esc(p.email || "")}</span></div>`).join("");
+        `<div class="picker-opt" data-name="${esc(personLabel(p))}">${esc(personLabel(p))}<span class="muted small"> ${esc(p.email || "")}</span></div>`).join("");
       if (raw && !hits.some((p) => (p.full_name || "").toLowerCase() === q))
         html += `<div class="picker-opt picker-add" data-name="${esc(raw)}">Add “${esc(raw)}”</div>`;
       if (!html) { menu.classList.add("hidden"); return; }
@@ -894,7 +913,7 @@
     }).slice(0, 6);
     if (!hits.length) { menu.classList.add("hidden"); return; }
     menu.innerHTML = hits.map((p) =>
-      `<div class="mention-item" data-name="${esc(p.full_name || p.email)}">${esc(p.full_name || p.email)}<span class="muted small"> ${esc(p.email || "")}</span></div>`).join("");
+      `<div class="mention-item" data-name="${esc(personLabel(p))}">${esc(personLabel(p))}<span class="muted small"> ${esc(p.email || "")}</span></div>`).join("");
     menu.classList.remove("hidden");
     menu.querySelectorAll(".mention-item").forEach((it) =>
       it.addEventListener("mousedown", (ev) => { ev.preventDefault(); insertMention(e.target, it.dataset.name); menu.classList.add("hidden"); }));
